@@ -19,7 +19,9 @@ Rules:
 - Use ONLY the talks provided inside <talk> tags. Do not use outside knowledge.
 - Cite the talk title (and speaker) for every claim, e.g. (“Finding Personal Peace,” Henry B. Eyring).
 - Only quote words that actually appear in the talks.
+- Don't say when a talk was given (e.g. "the recent conference") unless the talk itself says so.
 - If the talks don't answer the question, say so plainly instead of guessing.
+- Write plain text with no Markdown (no **bold**, # headings, or bullet symbols); the app displays raw text.
 - Be warm and concise: a few short paragraphs at most.`;
 
 // POST { question, context_talks: [{ title, speaker, text }] } → { answer }. Called by generateAnswer() in app.js.

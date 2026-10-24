@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/features/auth/useSession';
@@ -6,6 +7,7 @@ import { useSearchReadiness } from '@/features/search/useSearchReadiness';
 import KeywordSearch from '@/features/search/KeywordSearch';
 import SemanticSearch from '@/features/search/SemanticSearch';
 import AskQuestion from '@/features/search/AskQuestion';
+import QuestionHistory from '@/features/history/QuestionHistory';
 import DeployInfo from '@/features/setup/DeployInfo';
 import SetupBanner from '@/features/setup/SetupBanner';
 
@@ -26,6 +28,9 @@ export default function App() {
 // Only mounted once someone is logged in, so the readiness checks run with their JWT attached
 function AppScreen({ user }: { user: User }) {
     const ready = useSearchReadiness();
+    // "Lifting state up": AskQuestion and QuestionHistory are siblings, so the state they share lives
+    // in their parent. AskQuestion bumps it after saving; QuestionHistory reloads when it changes.
+    const [historyVersion, setHistoryVersion] = useState(0);
 
     return (
         <div id="app-screen" className="screen">
@@ -44,9 +49,9 @@ function AppScreen({ user }: { user: User }) {
                 <div className="search-panels">
                     <KeywordSearch ready={ready.keyword} />
                     <SemanticSearch ready={ready.semantic} />
-                    <AskQuestion ready={ready.rag} />
+                    <AskQuestion ready={ready.rag} onAsked={() => setHistoryVersion((v) => v + 1)} />
                 </div>
-                {/* TODO (Step 07): render <QuestionHistory refreshKey={...} /> here, and give AskQuestion an onAsked prop that bumps refreshKey (lift the state up into this component) */}
+                <QuestionHistory refreshKey={historyVersion} />
             </div>
         </div>
     );

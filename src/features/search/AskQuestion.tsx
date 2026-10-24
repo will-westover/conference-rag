@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import SearchPanel from './SearchPanel';
 import { TalkHeading, SimilarityBadge, ErrorMessage } from './ResultParts';
 import { getEmbedding, searchSentences, fetchFullTalkText, generateAnswer } from './api';
@@ -7,7 +8,13 @@ import type { RankedTalk, SearchState } from './types';
 
 type AskState = SearchState<{ answer: string; topTalks: RankedTalk[] }>;
 
-export default function AskQuestion({ ready }: { ready: boolean }) {
+interface AskQuestionProps {
+    ready: boolean;
+    // Called after an answer is saved, so the parent can refresh the history list
+    onAsked?: () => void;
+}
+
+export default function AskQuestion({ ready, onAsked }: AskQuestionProps) {
     const [state, setState] = useState<AskState>({ status: 'idle' });
 
     async function ask(question: string) {
@@ -25,7 +32,11 @@ export default function AskQuestion({ ready }: { ready: boolean }) {
 
             setState({ status: 'done', answer, topTalks });
 
-            // TODO (Step 07): insert { question, answer } into question_history (RLS + the auth.uid() default fill in user_id), then call an onAsked prop so the history list refreshes
+            // Save to history. No user_id here: the column defaults to auth.uid() from our JWT,
+            // and the insert policy rejects any row stamped with someone else's id.
+            const { error: saveError } = await supabase.from('question_history').insert({ question, answer });
+            if (saveError) console.warn('Could not save question history:', saveError.message);
+            else onAsked?.();
         } catch (err) {
             setState({ status: 'error', message: err instanceof Error ? err.message : String(err) });
         }

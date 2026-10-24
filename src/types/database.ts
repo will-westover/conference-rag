@@ -35,6 +35,48 @@ export type Database = {
         }
         Relationships: []
       }
+      question_cache: {
+        Row: {
+          created_at: string
+          embedding: string
+          question_hash: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          question_hash: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          question_hash?: string
+        }
+        Relationships: []
+      }
+      question_history: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: number
+          question: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: never
+          question: string
+          user_id?: string
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: never
+          question?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sentence_embeddings: {
         Row: {
           calling: string | null

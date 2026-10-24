@@ -768,3 +768,13 @@ input:focus {
         flex-direction: column;
     }
 }
+
+/* Question history: each row is a <details> that expands to show the saved answer */
+#history-panel details.result-card summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+#history-panel details.result-card[open] summary {
+    margin-bottom: var(--spacing-sm);
+}
