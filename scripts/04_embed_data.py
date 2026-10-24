@@ -80,7 +80,10 @@ def main():
 
     for i in tqdm(range(0, len(records_to_embed), BATCH_SIZE), desc="Embedding"):
         batch = records_to_embed[i:i + BATCH_SIZE]
-        batch_texts = [r['text'] for r in batch]
+        # Contextual header: embed "title + chunk" so a chunk that says "this principle" still carries the
+        # talk's topic. Only the vector sees the title; the stored text stays the plain chunk.
+        # The speaker is deliberately NOT embedded: it's an exact attribute, so filter on the column instead.
+        batch_texts = [f"{r['title']}\n\n{r['text']}" for r in batch]
 
         try:
             response = client.embeddings.create(

@@ -48,11 +48,69 @@ def load_config():
     return public_config, secrets
 
 
+# Chunk size limits in characters (~4 chars per token, so roughly 75–250 tokens per chunk)
+MIN_CHUNK_CHARS = 300   # shorter paragraphs get merged with the next one ("Children: \u201cYes.\u201d" alone means nothing)
+MAX_CHUNK_CHARS = 1000  # longer paragraphs get split at sentence boundaries
+
+# A sentence ends at . ! or ?, optionally followed by a closing quote/paren, then whitespace and a capital letter
+# (or an opening quote). Unlike the original "\. (?=[A-Z])" split, this handles ? ! and quoted scripture.
+SENTENCE_END = re.compile(r'(?<=[.!?])[\u201d"\u2019)]?\s+(?=[\u201c"\u2018(]?[A-Z0-9])')
+
+
 def split_into_sentences(text):
-    """Split text into sentences using a simple heuristic."""
-    sentences = re.split(r'\. (?=[A-Z])', text)
-    sentences = [s.strip() + '.' if not s.endswith('.') else s.strip() for s in sentences]
-    return [s for s in sentences if len(s) > 20]
+    """Split a paragraph into sentences, keeping closing quotes attached to their sentence."""
+    parts, start = [], 0
+    for match in SENTENCE_END.finditer(text):
+        end = match.start() + len(match.group().rstrip())  # include the closing quote, drop the whitespace
+        parts.append(text[start:end].strip())
+        start = match.end()
+    parts.append(text[start:].strip())
+    return [p for p in parts if p]
+
+
+def pack(pieces, separator):
+    """Greedily join consecutive pieces into chunks of at most MAX_CHUNK_CHARS."""
+    chunks, current = [], ''
+    for piece in pieces:
+        if current and len(current) + len(separator) + len(piece) > MAX_CHUNK_CHARS:
+            chunks.append(current)
+            current = piece
+        else:
+            current = f'{current}{separator}{piece}' if current else piece
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def chunk_talk(text):
+    """Split a talk into retrieval chunks that follow the speaker's own paragraphs.
+
+    1. Paragraphs longer than MAX_CHUNK_CHARS are split into sentence groups.
+    2. Consecutive short paragraphs are merged until a chunk reaches MIN_CHUNK_CHARS.
+    3. A short leftover at the end of the talk is merged into the previous chunk if it fits.
+    """
+    pieces = []
+    for paragraph in text.split('\n\n'):
+        if len(paragraph) > MAX_CHUNK_CHARS:
+            pieces.extend(pack(split_into_sentences(paragraph), ' '))
+        else:
+            pieces.append(paragraph)
+
+    chunks, current = [], ''
+    for piece in pieces:
+        if current and len(current) + 2 + len(piece) > MAX_CHUNK_CHARS:
+            chunks.append(current)
+            current = ''
+        current = f'{current}\n\n{piece}' if current else piece
+        if len(current) >= MIN_CHUNK_CHARS:
+            chunks.append(current)
+            current = ''
+    if current:
+        if chunks and len(chunks[-1]) + 2 + len(current) <= MAX_CHUNK_CHARS:
+            chunks[-1] = f'{chunks[-1]}\n\n{current}'
+        else:
+            chunks.append(current)
+    return chunks
 
 
 def main():
@@ -69,13 +127,14 @@ def main():
         talks = json.load(f)
     print(f"   Loaded {len(talks)} talks\n")
 
-    # Split into sentence records (no embeddings yet)
-    print("Splitting talks into sentences...")
+    # Split into chunk records (no embeddings yet). The table is still called sentence_embeddings and the
+    # position column sentence_num, so the app needs no changes; each row is now a paragraph-based chunk.
+    print("Splitting talks into paragraph chunks...")
     sentence_records = []
     for talk in tqdm(talks, desc="Splitting"):
         talk_id = str(uuid.uuid4())
-        sentences = split_into_sentences(talk['text'])
-        for i, sentence in enumerate(sentences, 1):
+        chunks = chunk_talk(talk['text'])
+        for i, chunk in enumerate(chunks, 1):
             sentence_records.append({
                 'talk_id': talk_id,
                 'title': talk['title'],
@@ -85,12 +144,12 @@ def main():
                 'season': talk['season'],
                 'url': talk['url'],
                 'sentence_num': i,
-                'text': sentence
+                'text': chunk
                 # No 'embedding' field — added in next step
             })
 
-    print(f"✅ Split {len(talks)} talks into {len(sentence_records):,} sentences")
-    print(f"   Average: {len(sentence_records) / len(talks):.1f} sentences per talk\n")
+    print(f"✅ Split {len(talks)} talks into {len(sentence_records):,} chunks")
+    print(f"   Average: {len(sentence_records) / len(talks):.1f} chunks per talk\n")
 
     # Save sentences locally (for embedding step to use)
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
