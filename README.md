@@ -74,35 +74,49 @@ Your AI assistant will automatically read [`ai_agent_instructions.md`](ai_agent_
 
 ## 📁 Project Structure
 
+The frontend is **React + TypeScript**, built with **Vite** and deployed to GitHub Pages by GitHub Actions.
+
 ```
 conference-rag/
-├── index.html                  # Main application UI
-├── app.js                      # Three search modes + auth logic
-├── styles.css                  # Dark theme styling
-├── config.js                   # Loads config.public.json for browser
-├── config.public.json          # Supabase URL + anon key (safe to commit)
+├── index.html                  # Vite entry: just <div id="root"> + src/main.tsx
+├── src/
+│   ├── main.tsx                # Mounts <App/> into #root
+│   ├── App.tsx                 # Login screen vs. app screen, based on the session
+│   ├── lib/
+│   │   ├── env.ts              # Validates config.public.json at startup
+│   │   └── supabase.ts         # The one typed Supabase client
+│   ├── types/database.ts       # Generated from the live schema (npm run gen:types)
+│   ├── features/
+│   │   ├── auth/               # useSession hook, LoginScreen
+│   │   ├── search/             # Keyword / Semantic / RAG panels, api.ts, ranking.ts (+ tests)
+│   │   ├── history/            # Step 07: per-user question history
+│   │   └── setup/              # Setup banner, deploy time + page views
+│   └── styles.css
+├── config.public.json          # Supabase URL + anon key (safe to commit; read by app AND scripts)
 ├── config.secret.json          # API keys & secrets (git-ignored, YOU create this)
-├── config.secret.example.json  # Template for config.secret.json
-├── requirements.txt            # Python dependencies
-├── .nojekyll                   # Tells GitHub Pages not to use Jekyll
+├── scripts/                    # Python data pipeline (run in order, see steps/)
+├── supabase/
+│   ├── functions/              # Edge Functions (Deno/TypeScript)
+│   │   ├── _shared/            # CORS + auth helpers
+│   │   ├── embed-question/
+│   │   └── generate-answer/
+│   └── migrations/             # Versioned SQL schema changes (supabase db push)
+├── .github/workflows/deploy.yml  # CI: lint → test → typecheck + build → deploy to Pages
 ├── steps/                      # Step-by-step assignment guides
-│   ├── 00_overview.md
-│   ├── ...
-│   └── 07_make_it_yours.md
-├── scripts/                    # Pipeline scripts (run in order)
-│   ├── 01_create_schema.py     # Create DB schema
-│   ├── 02_scrape_data.py       # Scrape conference talks → scripts/output/talks.json
-│   ├── 03_import_data.py       # Import text to Supabase (🔍 keyword!)
-│   ├── 04_embed_data.py        # Generate embeddings → scripts/output/ (💰 saved to disk!)
-│   ├── 05_update_embeddings.py # Update DB with embeddings (🧠 semantic!)
-│   └── output/                 # Intermediate data files (git-ignored)
-└── supabase/                   # Edge Functions (YOU create this with supabase init)
-    └── functions/
-        ├── _shared/            # Shared auth & CORS helpers
-        ├── embed-question/     # Converts questions to embeddings
-        └── generate-answer/    # Generates AI answers
+└── vite.config.ts, tsconfig*.json, eslint.config.js, .prettierrc.json
 ```
 
+### Frontend commands
+
+```bash
+npm install          # once, after cloning
+npm run dev          # http://localhost:5173/conference-rag/ with hot reload
+npm run typecheck    # TypeScript
+npm run lint         # ESLint
+npm run test         # Vitest unit tests
+npm run build        # typecheck + production build into dist/
+npm run gen:types    # regenerate src/types/database.ts after a schema change
+```
 ## 🔒 Security Model
 
 | Component | Security Approach |
